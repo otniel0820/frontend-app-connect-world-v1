@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter analyze:*)",
+      "Bash(ipconfig)",
+      "Bash(flutter build:*)",
+      "Bash(adb connect:*)",
+      "Bash(adb install:*)",
+      "Bash(xargs grep:*)",
+      "Bash(flutter devices:*)"
+    ]
+  }
+}

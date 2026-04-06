@@ -1,0 +1,510 @@
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../core/theme/app_colors.dart';
+import '../../../core/router/app_router.dart';
+import '../../../core/widgets/tv_search_bar.dart';
+import '../../../models/series.dart';
+import '../providers/series_provider.dart';
+
+class SeriesScreen extends ConsumerStatefulWidget {
+  const SeriesScreen({super.key});
+
+  @override
+  ConsumerState<SeriesScreen> createState() => _SeriesScreenState();
+}
+
+class _SeriesScreenState extends ConsumerState<SeriesScreen> {
+  late final ScrollController _scrollController;
+  late final FocusNode _searchFocusNode;
+  late final FocusNode _firstChipFocus;
+  late final FocusNode _firstCardFocus;
+  final Map<int, FocusNode> _chipNodes = {};
+
+  FocusNode _chipNode(int index) {
+    if (index == 0) return _firstChipFocus;
+    return _chipNodes.putIfAbsent(index, () => FocusNode());
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _scrollController.addListener(_onScroll);
+    _firstCardFocus = FocusNode();
+    _firstChipFocus = FocusNode();
+    _searchFocusNode = FocusNode();
+    NavbarFocus.registerContentFirst(_firstCardFocus);
+  }
+
+  void _onScroll() {
+    if (!mounted) return;
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 600) {
+      ref.read(seriesCatalogProvider.notifier).loadMore();
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    NavbarFocus.unregisterContentFirst();
+    _searchFocusNode.dispose();
+    _firstChipFocus.dispose();
+    _firstCardFocus.dispose();
+    for (final n in _chipNodes.values) { n.dispose(); }
+    super.dispose();
+  }
+
+  void _jumpToTop() {
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
+  }
+
+  void _scrollToTop() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(0,
+          duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(seriesCatalogProvider);
+    final genres = state.genres.keys.toList();
+
+    // Loading inicial
+    if (state.isLoading && state.items.isEmpty) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+      );
+    }
+
+    // Error sin datos
+    if (state.error != null && state.items.isEmpty) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, color: AppColors.error, size: 48),
+              const SizedBox(height: 12),
+              Text('Error: ${state.error}',
+                  style: const TextStyle(color: AppColors.textSecondary)),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () => ref.read(seriesCatalogProvider.notifier).retry(),
+                child: const Text('Reintentar'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: CustomScrollView(
+        controller: _scrollController,
+        slivers: [
+          // ── Sticky header ────────────────────────────────────────────
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _StickyHeader(
+              height: 128,
+              child: Container(
+                color: AppColors.background,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                      child: TvSearchBar(
+                        navFocusNode: _searchFocusNode,
+                        hintText: 'Buscar serie...',
+                        onChanged: (v) {
+                          ref.read(seriesCatalogProvider.notifier).onSearch(v);
+                        },
+                        onUp: () => NavbarFocus.requestFocus(),
+                        onDown: () => _firstChipFocus.requestFocus(),
+                      ),
+                    ),
+                    SizedBox(
+                      height: 46,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: genres.length + 1,
+                        itemBuilder: (context, index) {
+                          final isAll = index == 0;
+                          final genreName = isAll ? 'Todos' : genres[index - 1];
+                          final count = isAll
+                              ? state.genres.values.fold(0, (a, b) => a + b)
+                              : (state.genres[genreName] ?? 0);
+                          final selected = isAll
+                              ? state.selectedGenre == null
+                              : state.selectedGenre == genreName;
+                          final totalChips = genres.length + 1;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: _ChipItem(
+                              focusNode: _chipNode(index),
+                              label: '$genreName ($count)',
+                              selected: selected,
+                              onSelected: () {
+                                _scrollToTop();
+                                ref
+                                    .read(seriesCatalogProvider.notifier)
+                                    .filterByGenre(isAll ? null : genreName);
+                              },
+                              onUp: () => _searchFocusNode.requestFocus(),
+                              onDown: _jumpToTop,
+                              onRight: index < totalChips - 1
+                                  ? () => _chipNode(index + 1).requestFocus()
+                                  : null,
+                              onLeft: index > 0
+                                  ? () => _chipNode(index - 1).requestFocus()
+                                  : null,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+                      child: Text(
+                        '${state.items.length} serie${state.items.length != 1 ? 's' : ''}${state.hasMore ? '+' : ''}',
+                        style: const TextStyle(
+                            color: AppColors.textHint, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // ── Grid ────────────────────────────────────────────────────
+          if (state.items.isEmpty && !state.isLoading)
+            const SliverFillRemaining(
+              child: Center(
+                child: Text('Sin resultados',
+                    style: TextStyle(color: AppColors.textSecondary)),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              sliver: SliverGrid(
+                gridDelegate:
+                    const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 5,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  childAspectRatio: 0.67,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => _SeriesCard(
+                    series: state.items[index],
+                    focusNode: index == 0 ? _firstCardFocus : null,
+                    isTopRow: index < 5,
+                    onUpFromTopRow: () => _firstChipFocus.requestFocus(),
+                  ),
+                  childCount: state.items.length,
+                ),
+              ),
+            ),
+
+          // ── Loading more / end padding ───────────────────────────────
+          SliverToBoxAdapter(
+            child: state.isLoadingMore
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(
+                        child: CircularProgressIndicator(
+                            color: AppColors.primary)),
+                  )
+                : const SizedBox(height: 48),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Sticky header delegate ────────────────────────────────────────────────────
+
+class _StickyHeader extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  final double height;
+  const _StickyHeader({required this.child, required this.height});
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) =>
+      child;
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  double get minExtent => height;
+
+  @override
+  bool shouldRebuild(_StickyHeader old) => true;
+}
+
+// ── Category chip ─────────────────────────────────────────────────────────────
+
+class _ChipItem extends StatefulWidget {
+  final FocusNode? focusNode;
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+  final VoidCallback onUp;
+  final VoidCallback onDown;
+  final VoidCallback? onRight;
+  final VoidCallback? onLeft;
+
+  const _ChipItem({
+    this.focusNode,
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+    required this.onUp,
+    required this.onDown,
+    this.onRight,
+    this.onLeft,
+  });
+
+  @override
+  State<_ChipItem> createState() => _ChipItemState();
+}
+
+class _ChipItemState extends State<_ChipItem> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      focusNode: widget.focusNode,
+      onFocusChange: (f) => setState(() => _focused = f),
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        if (event.logicalKey == LogicalKeyboardKey.select ||
+            event.logicalKey == LogicalKeyboardKey.enter ||
+            event.logicalKey == LogicalKeyboardKey.numpadEnter) {
+          widget.onSelected();
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+          widget.onUp();
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+          widget.onDown(); // scroll to top
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) {
+              FocusScope.of(context).focusInDirection(TraversalDirection.down);
+            }
+          });
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+          widget.onRight?.call();
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+          widget.onLeft?.call();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
+        onTap: widget.onSelected,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: widget.selected ? AppColors.primary : AppColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: _focused
+                  ? Colors.white
+                  : (widget.selected ? AppColors.primary : AppColors.border),
+              width: _focused ? 2 : 1,
+            ),
+            boxShadow: _focused
+                ? [
+                    BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.4),
+                        blurRadius: 8)
+                  ]
+                : null,
+          ),
+          child: Text(
+            widget.label,
+            style: TextStyle(
+              fontSize: 12,
+              color:
+                  widget.selected ? Colors.white : AppColors.textSecondary,
+              fontWeight:
+                  widget.selected ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Series card ───────────────────────────────────────────────────────────────
+
+class _SeriesCard extends StatefulWidget {
+  final Series series;
+  final FocusNode? focusNode;
+  final VoidCallback? onUpFromTopRow;
+  final bool isTopRow;
+
+  const _SeriesCard({
+    required this.series,
+    this.focusNode,
+    this.onUpFromTopRow,
+    this.isTopRow = false,
+  });
+
+  @override
+  State<_SeriesCard> createState() => _SeriesCardState();
+}
+
+class _SeriesCardState extends State<_SeriesCard> {
+  bool _focused = false;
+
+  void _open() => context.push(AppRoutes.detail, extra: {
+        'id': widget.series.id,
+        'title': widget.series.title,
+        'posterUrl': widget.series.posterUrl,
+        'backdropUrl': widget.series.backdropUrl,
+        'overview': widget.series.overview,
+        'genre': widget.series.genre,
+        'year': widget.series.releaseYear,
+        'rating': widget.series.rating,
+        'isSeries': true,
+      });
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      focusNode: widget.focusNode,
+      onFocusChange: (f) => setState(() => _focused = f),
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        if (event.logicalKey == LogicalKeyboardKey.select ||
+            event.logicalKey == LogicalKeyboardKey.enter ||
+            event.logicalKey == LogicalKeyboardKey.numpadEnter) {
+          _open();
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.arrowUp &&
+            widget.isTopRow &&
+            widget.onUpFromTopRow != null) {
+          widget.onUpFromTopRow!();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
+        onTap: _open,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: _focused ? AppColors.primary : Colors.transparent,
+              width: 2,
+            ),
+            boxShadow: _focused
+                ? [
+                    BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.4),
+                        blurRadius: 12)
+                  ]
+                : null,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(7),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                widget.series.posterUrl?.isNotEmpty == true
+                    ? CachedNetworkImage(
+                        imageUrl: widget.series.posterUrl!,
+                        fit: BoxFit.cover,
+                        errorWidget: (_, __, ___) => _placeholder(),
+                      )
+                    : _placeholder(),
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.transparent, Color(0xEE0F1117)],
+                      ),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(6, 16, 6, 6),
+                    child: Text(
+                      widget.series.title,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'SERIE',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _placeholder() => Container(
+        color: AppColors.surfaceVariant,
+        child: const Icon(Icons.tv_outlined,
+            color: AppColors.textHint, size: 32),
+      );
+}
