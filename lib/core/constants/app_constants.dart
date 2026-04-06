@@ -7,7 +7,7 @@ abstract class ApiConstants {
   // ─────────────────────────────────────────────────────────────────────────
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://192.168.1.192:3000/api',
+    defaultValue: 'https://app-back-connect-world.com/api',
   );
 
   static const String login = '/auth/login';
