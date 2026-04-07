@@ -19,8 +19,13 @@ final videoControllerProvider = Provider.autoDispose<VideoController>((ref) {
   final player = ref.watch(playerProvider);
   return VideoController(
     player,
+    // mediacodec_embed usa la superficie Android nativa directamente.
+    // Elimina la copia GPU→CPU de mediacodec-copy, que es la causa
+    // de que el video 4K vaya lento con audio adelantado.
     configuration: const VideoControllerConfiguration(
       enableHardwareAcceleration: true,
+      vo: 'mediacodec_embed',
+      hwdec: 'mediacodec',
     ),
   );
 });

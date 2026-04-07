@@ -145,7 +145,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Focus(
+      body: Stack(
+        children: [
+          Focus(
         onKeyEvent: (node, event) {
           if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowUp) {
             NavbarFocus.requestFocus();
@@ -306,17 +308,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ),
 
-                  // App version
-                  const SizedBox(height: 20),
-                  if (_appVersion.isNotEmpty)
-                    Text(
-                      'Connect World $_appVersion',
-                      style: const TextStyle(
-                        color: AppColors.textHint,
-                        fontSize: 12,
-                      ),
-                    ),
-
                   // Extra bottom padding so logout isn't covered by floating nav
                   const SizedBox(height: 80),
                 ],
@@ -325,7 +316,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         ],
       ),
-    ),  // Focus
+          ),  // Focus
+
+          // Version overlay — fixed bottom-right corner
+          if (_appVersion.isNotEmpty)
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: Text(
+                _appVersion,
+                style: const TextStyle(
+                  color: AppColors.textHint,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

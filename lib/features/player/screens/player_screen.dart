@@ -110,19 +110,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         await native.setProperty('network-timeout', '30');
         await native.setProperty('stream-buffer-size', '512KiB');
 
-        // Hardware decoding — mediacodec-copy es el correcto para Android/Firestick
-        // 'auto' no selecciona MediaCodec correctamente en todos los dispositivos
-        await native.setProperty('hwdec', 'mediacodec-copy');
-        await native.setProperty('hwdec-codecs', 'all');
+        // hwdec ya está configurado en VideoControllerConfiguration (mediacodec_embed)
+        // No sobreescribir aquí para no entrar en conflicto con el VO de Android
 
-        // Software decoding fallback (cuando hwdec falla)
-        await native.setProperty('vd-lavc-threads', '0');
+        // Permitir frame drop en decoder y salida — evita congelamiento
+        await native.setProperty('framedrop', 'decoder+vo');
 
-        // Frame drop solo a nivel de salida de video, nunca en el decoder
-        // 'no' puede congelar el video si el decoder no llega a tiempo
-        await native.setProperty('framedrop', 'vo');
-
-        // Audio sync es más compatible con Android que display-resample
+        // Audio sync — video se adapta al audio
         await native.setProperty('video-sync', 'audio');
       }
 
