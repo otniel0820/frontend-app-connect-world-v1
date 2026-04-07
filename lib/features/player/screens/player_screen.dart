@@ -101,10 +101,30 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       // Configurar buffer mpv para streams de alto bitrate (4K/HEVC)
       final native = _player!.platform;
       if (native is NativePlayer) {
+        // Network & cache
         await native.setProperty('cache', 'yes');
-        await native.setProperty('demuxer-max-bytes', '150MiB');
-        await native.setProperty('demuxer-readahead-secs', '30');
-        await native.setProperty('network-timeout', '15');
+        await native.setProperty('demuxer-max-bytes', '300MiB');
+        await native.setProperty('demuxer-max-back-bytes', '150MiB');
+        await native.setProperty('demuxer-readahead-secs', '60');
+        await native.setProperty('cache-secs', '60');
+        await native.setProperty('network-timeout', '30');
+        await native.setProperty('stream-buffer-size', '512KiB');
+
+        // Hardware decoding — use all available decoders
+        await native.setProperty('hwdec', 'auto');
+        await native.setProperty('hwdec-codecs', 'all');
+
+        // Multi-threaded software decoding fallback
+        await native.setProperty('vd-lavc-threads', '0');
+        await native.setProperty('vd-lavc-dr', 'yes');
+
+        // Never drop frames — evita el efecto de frames congelados
+        await native.setProperty('framedrop', 'no');
+        await native.setProperty('video-latency-hacks', 'no');
+
+        // Video sync — resamplea para que coincida con la frecuencia del display
+        await native.setProperty('video-sync', 'display-resample');
+        await native.setProperty('interpolation', 'no');
       }
 
       await _player!.open(Media(info.url));

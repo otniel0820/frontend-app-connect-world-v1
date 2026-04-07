@@ -8,7 +8,7 @@ import '../../../models/stream_info.dart';
 final playerProvider = Provider.autoDispose<Player>((ref) {
   final player = Player(
     configuration: const PlayerConfiguration(
-      bufferSize: 64 * 1024 * 1024, // 64 MB — aguanta streams 4K sin freeze
+      bufferSize: 256 * 1024 * 1024, // 256 MB — streams 4K HEVC de alto bitrate
     ),
   );
   ref.onDispose(player.dispose);
