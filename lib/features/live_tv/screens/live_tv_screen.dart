@@ -27,10 +27,26 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
   bool _channelsFocused = false;
   final _scrollController = ScrollController();
   final Map<int, FocusNode> _chipNodes = {};
+  final Map<int, GlobalKey> _chipKeys = {};
 
   FocusNode _chipNode(int index) {
     if (index == 0) return _firstChipFocus;
     return _chipNodes.putIfAbsent(index, () => FocusNode());
+  }
+
+  GlobalKey _chipKey(int index) =>
+      _chipKeys.putIfAbsent(index, () => GlobalKey());
+
+  void _ensureChipVisible(int index) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _chipKey(index).currentContext;
+      if (ctx != null && mounted) {
+        Scrollable.ensureVisible(ctx,
+            alignment: 0.5,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut);
+      }
+    });
   }
 
   @override
@@ -167,6 +183,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                                   : _selectedGroup == groupName;
                               final totalChips = groups.length + 1;
                               return Padding(
+                                key: _chipKey(index),
                                 padding: const EdgeInsets.only(right: 8),
                                 child: _ChipItem(
                                   focusNode: _chipNode(index),
@@ -189,12 +206,19 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                                     if (_scrollController.hasClients) {
                                       _scrollController.jumpTo(0);
                                     }
+                                    _firstChannelFocus.requestFocus();
                                   },
                                   onRight: index < totalChips - 1
-                                      ? () => _chipNode(index + 1).requestFocus()
+                                      ? () {
+                                          _chipNode(index + 1).requestFocus();
+                                          _ensureChipVisible(index + 1);
+                                        }
                                       : null,
                                   onLeft: index > 0
-                                      ? () => _chipNode(index - 1).requestFocus()
+                                      ? () {
+                                          _chipNode(index - 1).requestFocus();
+                                          _ensureChipVisible(index - 1);
+                                        }
                                       : null,
                                 ),
                               );
@@ -314,12 +338,7 @@ class _ChipItemState extends State<_ChipItem> {
           return KeyEventResult.handled;
         }
         if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-          widget.onDown(); // scroll to top
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) {
-              FocusScope.of(context).focusInDirection(TraversalDirection.down);
-            }
-          });
+          widget.onDown();
           return KeyEventResult.handled;
         }
         if (event.logicalKey == LogicalKeyboardKey.arrowRight) {

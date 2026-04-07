@@ -6,7 +6,11 @@ import '../../../services/stream_service.dart';
 import '../../../models/stream_info.dart';
 
 final playerProvider = Provider.autoDispose<Player>((ref) {
-  final player = Player();
+  final player = Player(
+    configuration: const PlayerConfiguration(
+      bufferSize: 64 * 1024 * 1024, // 64 MB — aguanta streams 4K sin freeze
+    ),
+  );
   ref.onDispose(player.dispose);
   return player;
 });

@@ -97,6 +97,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       final info =
           await ref.read(streamInfoProvider(_currentStreamId).future);
       _player = ref.read(playerProvider);
+
+      // Configurar buffer mpv para streams de alto bitrate (4K/HEVC)
+      final native = _player!.platform;
+      if (native is NativePlayer) {
+        await native.setProperty('cache', 'yes');
+        await native.setProperty('demuxer-max-bytes', '150MiB');
+        await native.setProperty('demuxer-readahead-secs', '30');
+        await native.setProperty('network-timeout', '15');
+      }
+
       await _player!.open(Media(info.url));
       if (startMs > 0) {
         await _player!.seek(Duration(milliseconds: startMs));
