@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/router/app_router.dart';
@@ -14,8 +15,23 @@ import '../../../features/home/widgets/content_row.dart';
 import '../../../services/auth_service.dart';
 import '../../auth/providers/auth_provider.dart';
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  String _appVersion = '';
+
+  @override
+  void initState() {
+    super.initState();
+    PackageInfo.fromPlatform().then((info) {
+      if (mounted) setState(() => _appVersion = 'v${info.version}');
+    });
+  }
 
   Map<String, dynamic> _decodeJwt(String token) {
     try {
@@ -79,7 +95,7 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final storage = ref.read(localStorageProvider);
     final token = storage.getAuthToken();
     final username = storage.getUsername() ?? 'Usuario';
@@ -290,8 +306,19 @@ class ProfileScreen extends ConsumerWidget {
                     ),
                   ),
 
+                  // App version
+                  const SizedBox(height: 20),
+                  if (_appVersion.isNotEmpty)
+                    Text(
+                      'Connect World $_appVersion',
+                      style: const TextStyle(
+                        color: AppColors.textHint,
+                        fontSize: 12,
+                      ),
+                    ),
+
                   // Extra bottom padding so logout isn't covered by floating nav
-                  const SizedBox(height: 100),
+                  const SizedBox(height: 80),
                 ],
               ),
             ),

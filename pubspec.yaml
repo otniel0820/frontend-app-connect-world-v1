@@ -33,6 +33,7 @@ dependencies:
   flutter_animate: ^4.5.0
   cached_network_image: ^3.3.1
   shimmer: ^3.0.0
+  package_info_plus: ^8.0.0
 
   # TV navigation
   focusable_control_builder: ^1.1.0
