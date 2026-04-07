@@ -15,7 +15,7 @@ if (keyPropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.connectworld.app"
+    namespace = "com.example.connect_world"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
