@@ -69,7 +69,7 @@ class SubscriptionExpiredScreen extends ConsumerWidget {
                   height: 52,
                   child: ElevatedButton(
                     onPressed: () async {
-                      await storage.clearAuth();
+                      await storage.clearAll();
                       if (context.mounted) context.go(AppRoutes.login);
                     },
                     style: ElevatedButton.styleFrom(
@@ -80,7 +80,7 @@ class SubscriptionExpiredScreen extends ConsumerWidget {
                       ),
                     ),
                     child: const Text(
-                      'Volver al inicio',
+                      'Cambiar cuenta',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,

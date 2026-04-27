@@ -74,9 +74,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Already on expired screen — let through
       if (isExpiredRoute) return null;
 
-      // Check if subscription is expired (locally stored expiresAt or flag)
-      if (isAuthenticated &&
-          (storage.isSubscriptionExpired || storage.wasMarkedExpired)) {
+      // Check if subscription is expired (locally stored expiresAt)
+      if (isAuthenticated && storage.isSubscriptionExpired) {
         return AppRoutes.subscriptionExpired;
       }
 

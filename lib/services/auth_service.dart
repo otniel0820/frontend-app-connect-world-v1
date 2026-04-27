@@ -1,84 +1,62 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/networking/api_client.dart';
-import '../core/constants/app_constants.dart';
 import '../core/storage/local_storage.dart';
 import '../models/user.dart';
+import 'xtream_service.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) {
-  final client = ref.watch(apiClientProvider);
   final storage = ref.watch(localStorageProvider);
-  return AuthService(client, storage);
+  final xtream = ref.watch(xtreamServiceProvider);
+  return AuthService(storage, xtream);
 });
 
 class AuthService {
-  final ApiClient _client;
   final LocalStorage _storage;
+  final XtreamService _xtream;
 
-  AuthService(this._client, this._storage);
+  AuthService(this._storage, this._xtream);
 
-  Future<User> login(String username, String password) async {
+  Future<User> login(String serverUrl, String username, String password) async {
+    // Normalize server URL
+    var url = serverUrl.trim();
+    if (url.endsWith('/')) url = url.substring(0, url.length - 1);
+
     try {
-      final response = await _client.post<Map<String, dynamic>>(
-        ApiConstants.login,
-        data: {
-          'username': username.trim(),
-          'password': password,
-        },
+      final account = await _xtream.authenticate(url, username.trim(), password);
+
+      // Persist credentials in Hive
+      await _storage.saveXtreamUrl(url);
+      await _storage.saveXtreamUsername(username.trim());
+      await _storage.saveXtreamPassword(password);
+      await _storage.saveUsername(account.username);
+      await _storage.saveSubscriptionType(
+          account.isActive ? 'active' : 'demo');
+      await _storage.saveExpiresAt(account.expiresAt?.toIso8601String());
+
+      return User(
+        id: account.username,
+        username: account.username,
+        token: '',
+        subscriptionType: account.isActive ? 'active' : 'demo',
+        expiresAt: account.expiresAt?.toIso8601String(),
       );
-      final user = User.fromJson(response.data!);
-      await _storage.saveAuthToken(user.token);
-      await _storage.saveUsername(user.username);
-      await _storage.saveSubscriptionType(user.subscriptionType);
-      await _storage.saveExpiresAt(user.expiresAt);
-      return user;
     } on DioException catch (e) {
-      if (e.response?.statusCode == 403) {
-        final msg = e.response?.data?['message'] as String? ?? '';
-        if (msg == 'subscription_expired') {
-          throw Exception('Tu suscripción ha vencido. Contacta a tu proveedor.');
-        }
+      final status = e.response?.statusCode;
+      if (status == 401 || status == 403) {
+        throw Exception('Usuario o contraseña incorrectos');
       }
-      if (e.response?.statusCode == 401) {
-        final msg = e.response?.data?['message'] as String? ?? '';
-        throw Exception(msg.isNotEmpty ? msg : 'Credenciales inválidas');
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.connectionError) {
+        throw Exception(
+            'No se pudo conectar al servidor. Verifica la URL e intenta de nuevo.');
       }
       rethrow;
     }
   }
 
   Future<void> logout() async {
-    await _storage.clearAuth();
-  }
-
-  Future<void> setParentalPin(String pin) async {
-    final response = await _client.post<Map<String, dynamic>>(
-      ApiConstants.setParentalPin,
-      data: {'pin': pin},
-    );
-    final token = response.data?['token'] as String?;
-    if (token != null) await _storage.saveAuthToken(token);
-    await _storage.saveHideAdultContent(true);
-  }
-
-  Future<void> disableParentalPin(String pin) async {
-    try {
-      final response = await _client.delete<Map<String, dynamic>>(
-        ApiConstants.disableParentalPin,
-        data: {'pin': pin},
-      );
-      final token = response.data?['token'] as String?;
-      if (token != null) await _storage.saveAuthToken(token);
-      await _storage.saveHideAdultContent(false);
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
-        throw Exception('PIN incorrecto');
-      }
-      if (e.response?.statusCode == 400) {
-        throw Exception('El control parental no está activado');
-      }
-      rethrow;
-    }
+    await _storage.clearAll();
   }
 }

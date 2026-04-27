@@ -1,24 +1,24 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../models/channel.dart';
-import '../../../services/catalog_service.dart';
+import '../../../services/xtream_service.dart';
 
+/// All live channels — backed by the shared raw provider (cached).
 final channelsProvider = FutureProvider<List<Channel>>((ref) async {
-  final service = ref.watch(catalogServiceProvider);
-  return service.getChannels();
+  return ref.watch(rawLiveStreamsProvider.future);
 });
 
 final channelGroupsProvider = Provider<AsyncValue<List<String>>>((ref) {
   return ref.watch(channelsProvider).whenData(
-    (channels) => channels
-        .map((c) => c.groupTitle?.isNotEmpty == true ? c.groupTitle! : 'General')
-        .toSet()
-        .toList()
-      ..sort(),
-  );
+        (channels) => channels
+            .map((c) =>
+                c.groupTitle?.isNotEmpty == true ? c.groupTitle! : 'General')
+            .toSet()
+            .toList()
+          ..sort(),
+      );
 });
 
-/// All channels grouped by groupTitle, sorted alphabetically.
 final channelsByGroupProvider =
     Provider<AsyncValue<Map<String, List<Channel>>>>((ref) {
   return ref.watch(channelsProvider).whenData((channels) {

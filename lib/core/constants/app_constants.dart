@@ -1,42 +1,27 @@
-abstract class ApiConstants {
-  // ── IMPORTANTE: En producción usar HTTPS — cambia http:// por https:// ──
-  // iOS Simulator / Web:        'http://localhost:3000/api'
-  // Android Emulator:           'http://10.0.2.2:3000/api'
-  // Physical device (same LAN): 'http://192.168.x.x:3000/api'  ← your PC's IP
-  // Producción:                 'https://tu-dominio.com/api'
-  // ─────────────────────────────────────────────────────────────────────────
-  static const String baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'https://app-back-connect-world.com/api',
-  );
-
-  static const String login = '/auth/login';
-  static const String setParentalPin = '/auth/parental';
-  static const String disableParentalPin = '/auth/parental';
-  static const String catalog = '/catalog';
-  static const String channels = '/channels';
-  static const String movies = '/movies';
-  static const String series = '/series';
-  static String stream(String id) => '/stream/$id';
-  static String seriesEpisodes(String id) => '/series/$id/episodes';
-  static const String epg = '/epg';
-}
-
 abstract class StorageKeys {
-  static const String authToken = 'auth_token';
-  static const String userId = 'user_id';
+  // Xtream credentials
+  static const String xtreamUrl = 'xtream_url';
+  static const String xtreamUsername = 'xtream_username';
+  static const String xtreamPassword = 'xtream_password';
+
+  // User profile (cached from Xtream auth)
   static const String username = 'username';
-  static const String serverUrl = 'server_url';
   static const String subscriptionType = 'subscription_type';
   static const String expiresAt = 'expires_at';
-  static const String subscriptionExpired = 'subscription_expired';
+
+  // Local user data
   static const String favorites = 'favorites';
   static const String continueWatching = 'continue_watching';
   static const String hideAdultContent = 'hide_adult_content';
+  static const String parentalPin = 'parental_pin';
 }
 
 abstract class AppConstants {
   static const String appName = 'Connect World';
-  static const Duration connectTimeout = Duration(seconds: 15);
-  static const Duration receiveTimeout = Duration(seconds: 30);
+  static const Duration connectTimeout = Duration(seconds: 30);
+  static const Duration receiveTimeout = Duration(seconds: 60);
+  // Number of items shown per content row in the home screen
+  static const int homeRowLimit = 20;
+  // Client-side page size for movies/series screens
+  static const int catalogPageSize = 100;
 }

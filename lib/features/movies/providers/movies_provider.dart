@@ -3,16 +3,16 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../models/movie.dart';
-import '../../../services/catalog_service.dart';
+import '../../../services/xtream_service.dart';
+import '../../../core/constants/app_constants.dart';
 
-// ── Pagination page size ───────────────────────────────────────────────────
-const _kPageSize = 100;
+const _kPageSize = AppConstants.catalogPageSize;
 
 // ── State ──────────────────────────────────────────────────────────────────
 
 class MoviesCatalogState {
   final List<Movie> items;
-  final Map<String, int> genres; // genre name → count
+  final Map<String, int> genres;
   final String? selectedGenre;
   final String search;
   final bool isLoading;
@@ -49,7 +49,8 @@ class MoviesCatalogState {
     return MoviesCatalogState(
       items: items ?? this.items,
       genres: genres ?? this.genres,
-      selectedGenre: clearGenre ? null : (selectedGenre ?? this.selectedGenre),
+      selectedGenre:
+          clearGenre ? null : (selectedGenre ?? this.selectedGenre),
       search: search ?? this.search,
       isLoading: isLoading ?? this.isLoading,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
@@ -63,76 +64,85 @@ class MoviesCatalogState {
 // ── Notifier ───────────────────────────────────────────────────────────────
 
 class MoviesCatalogNotifier extends StateNotifier<MoviesCatalogState> {
-  final CatalogService _service;
+  final Ref _ref;
+  List<Movie> _allMovies = [];
   Timer? _debounce;
 
-  MoviesCatalogNotifier(this._service) : super(const MoviesCatalogState()) {
+  MoviesCatalogNotifier(this._ref) : super(const MoviesCatalogState()) {
     _init();
   }
 
   Future<void> _init() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final genres = await _service.getMovieGenres();
-      state = state.copyWith(genres: genres);
-      await _fetchPage(1, reset: true);
+      _allMovies = await _ref.read(rawMoviesProvider.future);
+
+      final genres = <String, int>{};
+      for (final m in _allMovies) {
+        if (m.genre?.isNotEmpty == true) {
+          genres[m.genre!] = (genres[m.genre!] ?? 0) + 1;
+        }
+      }
+
+      state = state.copyWith(genres: genres, isLoading: false);
+      _applyFilter(reset: true);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
-  Future<void> _fetchPage(int page, {bool reset = false}) async {
-    // Solo mostrar spinner full-screen en la carga inicial (sin items aún)
-    if (page == 1 && state.items.isEmpty) {
-      state = state.copyWith(isLoading: true, clearError: true);
-    } else {
-      state = state.copyWith(isLoadingMore: true, clearError: true);
+  List<Movie> _filteredItems() {
+    var items = _allMovies;
+    if (state.selectedGenre != null) {
+      items = items.where((m) => m.genre == state.selectedGenre).toList();
     }
-    try {
-      final items = await _service.getMovies(
-        genre: state.selectedGenre,
-        search: state.search.isEmpty ? null : state.search,
-        page: page,
-        limit: _kPageSize,
-      );
-      state = state.copyWith(
-        items: reset ? items : [...state.items, ...items],
-        page: page,
-        hasMore: items.length == _kPageSize,
-        isLoading: false,
-        isLoadingMore: false,
-      );
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        isLoadingMore: false,
-        error: e.toString(),
-      );
+    if (state.search.isNotEmpty) {
+      final q = state.search.toLowerCase();
+      items = items.where((m) => m.title.toLowerCase().contains(q)).toList();
     }
+    return items;
+  }
+
+  void _applyFilter({bool reset = false}) {
+    final filtered = _filteredItems();
+    final startIndex = reset ? 0 : state.items.length;
+    final page = reset ? 1 : state.page + 1;
+    final nextBatch =
+        filtered.skip(startIndex).take(_kPageSize).toList();
+
+    state = state.copyWith(
+      items: reset ? nextBatch : [...state.items, ...nextBatch],
+      page: page,
+      hasMore: startIndex + nextBatch.length < filtered.length,
+      isLoading: false,
+      isLoadingMore: false,
+    );
   }
 
   void loadMore() {
     if (!state.hasMore || state.isLoadingMore || state.isLoading) return;
-    _fetchPage(state.page + 1);
+    state = state.copyWith(isLoadingMore: true);
+    _applyFilter();
   }
 
   void onSearch(String query) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 400), () {
-      // No borrar items todavía — los items actuales se mantienen visibles
-      // mientras llegan los nuevos, así el árbol de widgets no se destruye
-      state = state.copyWith(search: query, page: 1, hasMore: true);
-      _fetchPage(1, reset: true);
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      state = state.copyWith(
+          search: query, items: [], page: 1, hasMore: true);
+      _applyFilter(reset: true);
     });
   }
 
   void filterByGenre(String? genre) {
     if (genre == null) {
-      state = state.copyWith(clearGenre: true, items: [], page: 1, hasMore: true);
+      state = state.copyWith(
+          clearGenre: true, items: [], page: 1, hasMore: true);
     } else {
-      state = state.copyWith(selectedGenre: genre, items: [], page: 1, hasMore: true);
+      state = state.copyWith(
+          selectedGenre: genre, items: [], page: 1, hasMore: true);
     }
-    _fetchPage(1, reset: true);
+    _applyFilter(reset: true);
   }
 
   void retry() => _init();
@@ -148,5 +158,5 @@ class MoviesCatalogNotifier extends StateNotifier<MoviesCatalogState> {
 
 final moviesCatalogProvider =
     StateNotifierProvider<MoviesCatalogNotifier, MoviesCatalogState>((ref) {
-  return MoviesCatalogNotifier(ref.watch(catalogServiceProvider));
+  return MoviesCatalogNotifier(ref);
 });

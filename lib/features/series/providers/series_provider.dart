@@ -4,16 +4,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../models/series.dart';
 import '../../../models/series_episode.dart';
-import '../../../services/catalog_service.dart';
+import '../../../services/xtream_service.dart';
+import '../../../core/constants/app_constants.dart';
 
-// ── Pagination page size ───────────────────────────────────────────────────
-const _kPageSize = 100;
+const _kPageSize = AppConstants.catalogPageSize;
 
 // ── State ──────────────────────────────────────────────────────────────────
 
 class SeriesCatalogState {
   final List<Series> items;
-  final Map<String, int> genres; // genre name → count
+  final Map<String, int> genres;
   final String? selectedGenre;
   final String search;
   final bool isLoading;
@@ -50,7 +50,8 @@ class SeriesCatalogState {
     return SeriesCatalogState(
       items: items ?? this.items,
       genres: genres ?? this.genres,
-      selectedGenre: clearGenre ? null : (selectedGenre ?? this.selectedGenre),
+      selectedGenre:
+          clearGenre ? null : (selectedGenre ?? this.selectedGenre),
       search: search ?? this.search,
       isLoading: isLoading ?? this.isLoading,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
@@ -64,76 +65,85 @@ class SeriesCatalogState {
 // ── Notifier ───────────────────────────────────────────────────────────────
 
 class SeriesCatalogNotifier extends StateNotifier<SeriesCatalogState> {
-  final CatalogService _service;
+  final Ref _ref;
+  List<Series> _allSeries = [];
   Timer? _debounce;
 
-  SeriesCatalogNotifier(this._service) : super(const SeriesCatalogState()) {
+  SeriesCatalogNotifier(this._ref) : super(const SeriesCatalogState()) {
     _init();
   }
 
   Future<void> _init() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final genres = await _service.getSeriesGenres();
-      state = state.copyWith(genres: genres);
-      await _fetchPage(1, reset: true);
+      _allSeries = await _ref.read(rawSeriesProvider.future);
+
+      final genres = <String, int>{};
+      for (final s in _allSeries) {
+        if (s.genre?.isNotEmpty == true) {
+          genres[s.genre!] = (genres[s.genre!] ?? 0) + 1;
+        }
+      }
+
+      state = state.copyWith(genres: genres, isLoading: false);
+      _applyFilter(reset: true);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
-  Future<void> _fetchPage(int page, {bool reset = false}) async {
-    // Solo mostrar spinner full-screen en la carga inicial (sin items aún)
-    if (page == 1 && state.items.isEmpty) {
-      state = state.copyWith(isLoading: true, clearError: true);
-    } else {
-      state = state.copyWith(isLoadingMore: true, clearError: true);
+  List<Series> _filteredItems() {
+    var items = _allSeries;
+    if (state.selectedGenre != null) {
+      items = items.where((s) => s.genre == state.selectedGenre).toList();
     }
-    try {
-      final items = await _service.getSeries(
-        genre: state.selectedGenre,
-        search: state.search.isEmpty ? null : state.search,
-        page: page,
-        limit: _kPageSize,
-      );
-      state = state.copyWith(
-        items: reset ? items : [...state.items, ...items],
-        page: page,
-        hasMore: items.length == _kPageSize,
-        isLoading: false,
-        isLoadingMore: false,
-      );
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        isLoadingMore: false,
-        error: e.toString(),
-      );
+    if (state.search.isNotEmpty) {
+      final q = state.search.toLowerCase();
+      items = items.where((s) => s.title.toLowerCase().contains(q)).toList();
     }
+    return items;
+  }
+
+  void _applyFilter({bool reset = false}) {
+    final filtered = _filteredItems();
+    final startIndex = reset ? 0 : state.items.length;
+    final page = reset ? 1 : state.page + 1;
+    final nextBatch =
+        filtered.skip(startIndex).take(_kPageSize).toList();
+
+    state = state.copyWith(
+      items: reset ? nextBatch : [...state.items, ...nextBatch],
+      page: page,
+      hasMore: startIndex + nextBatch.length < filtered.length,
+      isLoading: false,
+      isLoadingMore: false,
+    );
   }
 
   void loadMore() {
     if (!state.hasMore || state.isLoadingMore || state.isLoading) return;
-    _fetchPage(state.page + 1);
+    state = state.copyWith(isLoadingMore: true);
+    _applyFilter();
   }
 
   void onSearch(String query) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 400), () {
-      // No borrar items todavía — los items actuales se mantienen visibles
-      // mientras llegan los nuevos, así el árbol de widgets no se destruye
-      state = state.copyWith(search: query, page: 1, hasMore: true);
-      _fetchPage(1, reset: true);
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      state = state.copyWith(
+          search: query, items: [], page: 1, hasMore: true);
+      _applyFilter(reset: true);
     });
   }
 
   void filterByGenre(String? genre) {
     if (genre == null) {
-      state = state.copyWith(clearGenre: true, items: [], page: 1, hasMore: true);
+      state = state.copyWith(
+          clearGenre: true, items: [], page: 1, hasMore: true);
     } else {
-      state = state.copyWith(selectedGenre: genre, items: [], page: 1, hasMore: true);
+      state = state.copyWith(
+          selectedGenre: genre, items: [], page: 1, hasMore: true);
     }
-    _fetchPage(1, reset: true);
+    _applyFilter(reset: true);
   }
 
   void retry() => _init();
@@ -149,11 +159,10 @@ class SeriesCatalogNotifier extends StateNotifier<SeriesCatalogState> {
 
 final seriesCatalogProvider =
     StateNotifierProvider<SeriesCatalogNotifier, SeriesCatalogState>((ref) {
-  return SeriesCatalogNotifier(ref.watch(catalogServiceProvider));
+  return SeriesCatalogNotifier(ref);
 });
 
-// Episodes provider (unchanged)
 final seriesEpisodesProvider =
     FutureProvider.family<List<SeriesEpisode>, String>((ref, seriesId) async {
-  return ref.read(catalogServiceProvider).getSeriesEpisodes(seriesId);
+  return ref.read(xtreamServiceProvider).getSeriesEpisodes(seriesId);
 });

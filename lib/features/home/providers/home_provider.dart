@@ -1,21 +1,24 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../models/catalog.dart';
-import '../../../services/catalog_service.dart';
+import '../../../services/xtream_service.dart';
+import '../../../core/constants/app_constants.dart';
 
-/// Refresca el catálogo del home cada 30 minutos para mostrar
-/// siempre el contenido HD/4K más reciente.
-const _kCatalogRefreshInterval = Duration(minutes: 30);
-
+/// Home catalog — a limited subset of each content type for the home screen.
+/// Uses the cached raw providers so the full catalog isn't fetched again
+/// when visiting the Movies / Series / Live TV screens.
 final catalogProvider = FutureProvider<Catalog>((ref) async {
-  final service = ref.watch(catalogServiceProvider);
+  // Depend on raw providers so this refreshes when they do (on login/logout)
+  final channels = await ref.watch(rawLiveStreamsProvider.future);
+  final movies = await ref.watch(rawMoviesProvider.future);
+  final series = await ref.watch(rawSeriesProvider.future);
 
-  // Auto-invalidate after the refresh interval so new HD/4K content
-  // added via sync is picked up without restarting the app.
-  final timer = Stream<void>.periodic(_kCatalogRefreshInterval).listen((_) {
-    ref.invalidateSelf();
-  });
-  ref.onDispose(timer.cancel);
+  const limit = AppConstants.homeRowLimit;
 
-  return service.getCatalog();
+  return Catalog(
+    channels: channels.take(limit).toList(),
+    movies: movies.take(limit).toList(),
+    series: series.take(limit).toList(),
+    featured: movies.take(5).toList(),
+  );
 });

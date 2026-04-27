@@ -1,20 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/networking/api_client.dart';
-import '../core/constants/app_constants.dart';
 import '../models/stream_info.dart';
+import 'xtream_service.dart';
 
 final streamServiceProvider = Provider<StreamService>((ref) {
-  return StreamService(ref.watch(apiClientProvider));
+  return StreamService(ref.watch(xtreamServiceProvider));
 });
 
 class StreamService {
-  final ApiClient _client;
+  final XtreamService _xtream;
 
-  StreamService(this._client);
+  StreamService(this._xtream);
 
-  Future<StreamInfo> getStreamUrl(String id) async {
-    final response = await _client.get<Map<String, dynamic>>(ApiConstants.stream(id));
-    return StreamInfo.fromJson(response.data!);
+  /// Builds a playable StreamInfo from the encoded stream ID.
+  /// No network call — URL is constructed locally from credentials.
+  Future<StreamInfo> getStreamUrl(String encodedId) async {
+    return _xtream.buildStreamInfo(encodedId);
   }
 }

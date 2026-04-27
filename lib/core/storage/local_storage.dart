@@ -11,45 +11,66 @@ class LocalStorage {
   Box get _continueWatching => Hive.box('continue_watching');
   Box get _seriesProgress => Hive.box('series_progress');
 
-  // Auth
-  String? getAuthToken() => _auth.get(StorageKeys.authToken) as String?;
-  Future<void> saveAuthToken(String token) => _auth.put(StorageKeys.authToken, token);
-  String? getUsername() => _auth.get(StorageKeys.username) as String?;
-  Future<void> saveUsername(String username) => _auth.put(StorageKeys.username, username);
-  String? getServerUrl() => _auth.get(StorageKeys.serverUrl) as String?;
-  Future<void> saveServerUrl(String url) => _auth.put(StorageKeys.serverUrl, url);
+  // ── Xtream credentials ────────────────────────────────────────────────────
+  String? getXtreamUrl() => _auth.get(StorageKeys.xtreamUrl) as String?;
+  Future<void> saveXtreamUrl(String url) =>
+      _auth.put(StorageKeys.xtreamUrl, url);
 
-  // Subscription
-  String? getSubscriptionType() => _auth.get(StorageKeys.subscriptionType) as String?;
+  String? getXtreamUsername() =>
+      _auth.get(StorageKeys.xtreamUsername) as String?;
+  Future<void> saveXtreamUsername(String username) =>
+      _auth.put(StorageKeys.xtreamUsername, username);
+
+  String? getXtreamPassword() =>
+      _auth.get(StorageKeys.xtreamPassword) as String?;
+  Future<void> saveXtreamPassword(String password) =>
+      _auth.put(StorageKeys.xtreamPassword, password);
+
+  // ── Session auth ──────────────────────────────────────────────────────────
+  bool get isAuthenticated =>
+      getXtreamUrl() != null &&
+      getXtreamUsername() != null &&
+      getXtreamPassword() != null;
+
+  // ── User profile ──────────────────────────────────────────────────────────
+  String? getUsername() => _auth.get(StorageKeys.username) as String?;
+  Future<void> saveUsername(String username) =>
+      _auth.put(StorageKeys.username, username);
+
+  String? getSubscriptionType() =>
+      _auth.get(StorageKeys.subscriptionType) as String?;
   Future<void> saveSubscriptionType(String type) =>
       _auth.put(StorageKeys.subscriptionType, type);
+
   String? getExpiresAt() => _auth.get(StorageKeys.expiresAt) as String?;
-  Future<void> saveExpiresAt(String? isoDate) =>
-      isoDate != null ? _auth.put(StorageKeys.expiresAt, isoDate) : _auth.delete(StorageKeys.expiresAt);
+  Future<void> saveExpiresAt(String? isoDate) => isoDate != null
+      ? _auth.put(StorageKeys.expiresAt, isoDate)
+      : _auth.delete(StorageKeys.expiresAt);
 
   bool get isSubscriptionExpired {
     final raw = getExpiresAt();
     if (raw == null) return false;
-    return DateTime.now().isAfter(DateTime.parse(raw));
+    try {
+      return DateTime.now().isAfter(DateTime.parse(raw));
+    } catch (_) {
+      return false;
+    }
   }
 
-  bool get wasMarkedExpired => (_auth.get(StorageKeys.subscriptionExpired) as bool?) ?? false;
-  Future<void> markSubscriptionExpired() =>
-      _auth.put(StorageKeys.subscriptionExpired, true);
-
-  Future<void> clearAuth() async {
-    await _auth.clear();
-  }
-
-  bool get isAuthenticated => getAuthToken() != null;
-
-  // Parental controls
+  // ── Parental controls (local PIN, no backend) ─────────────────────────────
   bool get hideAdultContent =>
       (_auth.get(StorageKeys.hideAdultContent) as bool?) ?? false;
   Future<void> saveHideAdultContent(bool value) =>
       _auth.put(StorageKeys.hideAdultContent, value);
 
-  // Favorites
+  String? getParentalPin() => _auth.get(StorageKeys.parentalPin) as String?;
+  Future<void> saveParentalPin(String pin) =>
+      _auth.put(StorageKeys.parentalPin, pin);
+  Future<void> clearParentalPin() => _auth.delete(StorageKeys.parentalPin);
+
+  bool verifyParentalPin(String pin) => getParentalPin() == pin;
+
+  // ── Favorites ─────────────────────────────────────────────────────────────
   List<String> getFavoriteIds() {
     final raw = _favorites.get(StorageKeys.favorites);
     if (raw == null) return [];
@@ -68,22 +89,21 @@ class LocalStorage {
 
   bool isFavorite(String id) => getFavoriteIds().contains(id);
 
-  // Continue Watching — stores [positionMs, durationMs] per id
+  // ── Continue watching ──────────────────────────────────────────────────────
   Map<String, dynamic> _rawContinueWatching() {
     final raw = _continueWatching.get(StorageKeys.continueWatching);
     if (raw == null) return {};
     return Map<String, dynamic>.from(raw as Map);
   }
 
-  /// Returns positionMs for each id (backward-compatible).
   Map<String, int> getContinueWatching() {
     return _rawContinueWatching().map((k, v) {
-      final pos = v is List ? (v[0] as num).toInt() : (v as num).toInt();
+      final pos =
+          v is List ? (v[0] as num).toInt() : (v as num).toInt();
       return MapEntry(k, pos);
     });
   }
 
-  /// Returns [positionMs, durationMs] for the given id, or null if not found.
   List<int>? getContinueWatchingEntry(String id) {
     final raw = _rawContinueWatching()[id];
     if (raw == null) return null;
@@ -100,16 +120,24 @@ class LocalStorage {
     await _continueWatching.put(StorageKeys.continueWatching, map);
   }
 
-  // Series progress — remembers the last episode watched per series
+  // ── Series progress ────────────────────────────────────────────────────────
   Future<void> saveSeriesLastEpisode(
       String seriesId, int season, String episodeId) async {
-    await _seriesProgress.put(seriesId, {'season': season, 'episodeId': episodeId});
+    await _seriesProgress.put(
+        seriesId, {'season': season, 'episodeId': episodeId});
   }
 
-  /// Returns {season, episodeId} for the given series, or null if never watched.
   Map<String, dynamic>? getSeriesLastEpisode(String seriesId) {
     final raw = _seriesProgress.get(seriesId);
     if (raw == null) return null;
     return Map<String, dynamic>.from(raw as Map);
+  }
+
+  // ── Clear all ─────────────────────────────────────────────────────────────
+  Future<void> clearAll() async {
+    await _auth.clear();
+    await _favorites.clear();
+    await _continueWatching.clear();
+    await _seriesProgress.clear();
   }
 }
