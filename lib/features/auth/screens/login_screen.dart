@@ -96,6 +96,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _textFocusForIndex(idx)?.requestFocus();
   }
 
+  // Toque en pantalla táctil (teléfono/tablet): entra a modo edición para que
+  // se abra el teclado y se pueda pegar. No afecta la navegación D-pad de TV.
+  void _onTapField(int idx) {
+    setState(() {
+      _focusedIndex = idx;
+      _editingIndex = idx;
+    });
+    _navFocus[idx].requestFocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _textFocusForIndex(idx)?.requestFocus();
+    });
+  }
+
   void _exitEditMode() {
     if (_editingIndex == null) return;
     final idx = _editingIndex!;
@@ -245,6 +258,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             isFocused: _focusedIndex == _kUrl,
                             isEditing: _editingIndex == _kUrl,
                             keyboardType: TextInputType.url,
+                            onTap: () => _onTapField(_kUrl),
                             onSubmitted: (_) => _exitEditMode(),
                             validator: (v) {
                               if (v == null || v.trim().isEmpty) {
@@ -269,6 +283,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             icon: Icons.person_outline,
                             isFocused: _focusedIndex == _kUsername,
                             isEditing: _editingIndex == _kUsername,
+                            onTap: () => _onTapField(_kUsername),
                             onSubmitted: (_) => _exitEditMode(),
                             validator: (v) =>
                                 (v == null || v.trim().isEmpty)
@@ -291,6 +306,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   obscureText: _obscurePassword,
                                   isFocused: _focusedIndex == _kPassword,
                                   isEditing: _editingIndex == _kPassword,
+                                  onTap: () => _onTapField(_kPassword),
                                   onSubmitted: (_) => _exitEditMode(),
                                   validator: (v) =>
                                       (v == null || v.isEmpty)
@@ -488,6 +504,7 @@ class _TvField extends StatelessWidget {
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
   final ValueChanged<String>? onSubmitted;
+  final VoidCallback? onTap;
 
   const _TvField({
     required this.controller,
@@ -502,6 +519,7 @@ class _TvField extends StatelessWidget {
     this.keyboardType,
     this.validator,
     this.onSubmitted,
+    this.onTap,
   });
 
   @override
@@ -525,11 +543,13 @@ class _TvField extends StatelessWidget {
           focusNode: textFocus,
           readOnly: !isEditing,
           obscureText: obscureText,
+          enableInteractiveSelection: true,
           keyboardType: keyboardType,
           textInputAction: TextInputAction.done,
           autocorrect: false,
           style:
               const TextStyle(color: AppColors.textPrimary, fontSize: 14),
+          onTap: onTap,
           onFieldSubmitted: onSubmitted,
           validator: validator,
           decoration: InputDecoration(

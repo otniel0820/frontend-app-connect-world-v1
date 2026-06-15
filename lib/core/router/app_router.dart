@@ -321,21 +321,31 @@ class _TransparentTopNavState extends State<_TransparentTopNav> {
                 // ── Nav items ─────────────────────────────────────────
                 // Tabs: 0=Inicio, 1=Películas, 2=Series, 3=En vivo
                 // Chain: tab0 ↔ tab1 ↔ tab2 ↔ tab3 ↔ search(4) ↔ profile(5)
-                ...List.generate(_navTabs.length, (i) {
-                  final tab = _navTabs[i];
-                  final isActive = location == tab.route;
-                  return _NavItem(
-                    focusNode: _fns[i],
-                    prevFocus: i > 0 ? _fns[i - 1] : null,
-                    nextFocus: _fns[i + 1], // tab3 → search(_fns[4])
-                    label: tab.label,
-                    isActive: isActive,
-                    autofocus: false,
-                    onTap: () => context.go(tab.route),
-                  );
-                }),
+                // Envuelto en scroll horizontal: en pantallas angostas (teléfono
+                // en vertical) las pestañas se desplazan en vez de recortar los
+                // íconos de buscar/perfil. En TV/horizontal caben y no hay scroll.
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: List.generate(_navTabs.length, (i) {
+                        final tab = _navTabs[i];
+                        final isActive = location == tab.route;
+                        return _NavItem(
+                          focusNode: _fns[i],
+                          prevFocus: i > 0 ? _fns[i - 1] : null,
+                          nextFocus: _fns[i + 1], // tab3 → search(_fns[4])
+                          label: tab.label,
+                          isActive: isActive,
+                          autofocus: false,
+                          onTap: () => context.go(tab.route),
+                        );
+                      }),
+                    ),
+                  ),
+                ),
 
-                const Spacer(),
+                const SizedBox(width: 8),
 
                 // ── Search icon ───────────────────────────────────────
                 _IconBtn(

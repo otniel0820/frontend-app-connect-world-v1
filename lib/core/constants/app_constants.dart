@@ -19,7 +19,7 @@ abstract class StorageKeys {
 abstract class AppConstants {
   static const String appName = 'Connect World';
   static const Duration connectTimeout = Duration(seconds: 30);
-  static const Duration receiveTimeout = Duration(seconds: 60);
+  static const Duration receiveTimeout = Duration(seconds: 120);
   // Number of items shown per content row in the home screen
   static const int homeRowLimit = 20;
   // Client-side page size for movies/series screens

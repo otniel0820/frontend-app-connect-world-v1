@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/storage/local_storage.dart';
+import '../../../services/xtream_service.dart';
 import '../providers/home_provider.dart';
 import '../widgets/featured_banner.dart';
 import '../widgets/content_row.dart';
@@ -106,12 +107,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: [
               const Icon(Icons.error_outline, color: AppColors.error, size: 48),
               const SizedBox(height: 16),
-              Text('Failed to load content',
+              Text('No se pudo cargar el contenido',
                   style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  e.toString(),
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: AppColors.textSecondary),
+                ),
+              ),
+              const SizedBox(height: 12),
               ElevatedButton(
-                onPressed: () => ref.invalidate(catalogProvider),
-                child: const Text('Retry'),
+                onPressed: () {
+                  ref.invalidate(rawLiveStreamsProvider);
+                  ref.invalidate(rawMoviesProvider);
+                  ref.invalidate(rawSeriesProvider);
+                  ref.invalidate(catalogProvider);
+                },
+                child: const Text('Reintentar'),
               ),
             ],
           ),
