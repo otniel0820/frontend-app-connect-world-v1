@@ -235,7 +235,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
               sliver: SliverGrid(
                 gridDelegate:
                     const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 5,
+                  crossAxisCount: 3,
                   crossAxisSpacing: 10,
                   mainAxisSpacing: 10,
                   childAspectRatio: 0.67,
@@ -244,7 +244,7 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                   (context, index) => _MovieCard(
                     movie: state.items[index],
                     focusNode: index == 0 ? _firstCardFocus : null,
-                    isTopRow: index < 5,
+                    isTopRow: index < 3,
                     onUpFromTopRow: () => _firstChipFocus.requestFocus(),
                   ),
                   childCount: state.items.length,

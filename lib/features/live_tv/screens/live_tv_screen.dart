@@ -246,7 +246,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                 sliver: SliverGrid(
                   gridDelegate:
                       const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
+                    crossAxisCount: 3,
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
                     childAspectRatio: 1.55,
@@ -256,7 +256,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                       channel: filtered[index],
                       focusNode: index == 0 ? _firstChannelFocus : null,
                       onUpFromTopRow: () => _firstChipFocus.requestFocus(),
-                      isTopRow: index < 4,
+                      isTopRow: index < 3,
                     ),
                     childCount: filtered.length,
                   ),
