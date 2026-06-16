@@ -134,8 +134,9 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
           SliverPersistentHeader(
             pinned: true,
             delegate: _StickyHeader(
-              height: 128,
+              height: 132,
               child: Container(
+                height: 132,
                 color: AppColors.background,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -354,7 +355,7 @@ class _ChipItemState extends State<_ChipItem> {
         onTap: widget.onSelected,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
           decoration: BoxDecoration(
             color: widget.selected ? AppColors.primary : AppColors.surface,
             borderRadius: BorderRadius.circular(20),

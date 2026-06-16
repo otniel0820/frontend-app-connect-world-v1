@@ -158,7 +158,8 @@ class FeaturedBanner extends StatelessWidget {
                     }
                     return KeyEventResult.ignored;
                   },
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ElevatedButton.icon(
                       onPressed: () => context.push(
@@ -173,7 +174,7 @@ class FeaturedBanner extends StatelessWidget {
                         backgroundColor: Colors.white,
                         foregroundColor: Colors.black,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 14),
+                            horizontal: 16, vertical: 14),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(6)),
                       ),
@@ -181,7 +182,7 @@ class FeaturedBanner extends StatelessWidget {
                       label: const Text('Reproducir',
                           style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(height: 12),
                     OutlinedButton.icon(
                       onPressed: () => context.push(
                         AppRoutes.detail,
@@ -200,7 +201,7 @@ class FeaturedBanner extends StatelessWidget {
                         foregroundColor: AppColors.textPrimary,
                         side: const BorderSide(color: Colors.white54),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 14),
+                            horizontal: 16, vertical: 14),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(6)),
                       ),

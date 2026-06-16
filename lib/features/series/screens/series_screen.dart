@@ -132,8 +132,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
           SliverPersistentHeader(
             pinned: true,
             delegate: _StickyHeader(
-              height: 128,
+              height: 132,
               child: Container(
+                height: 132,
                 color: AppColors.background,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

@@ -32,32 +32,56 @@ void main() {
     await Hive.close();
   });
 
-  // ── Auth ──────────────────────────────────────────────────────────────────
+  // ── Xtream credentials ───────────────────────────────────────────────────
 
-  group('Auth token', () {
-    test('getAuthToken returns null when not set', () {
-      expect(storage.getAuthToken(), isNull);
+  group('Xtream credentials', () {
+    test('getXtreamUrl/Username/Password return null when not set', () {
+      expect(storage.getXtreamUrl(), isNull);
+      expect(storage.getXtreamUsername(), isNull);
+      expect(storage.getXtreamPassword(), isNull);
     });
 
-    test('saveAuthToken and getAuthToken round-trip', () async {
-      await storage.saveAuthToken('my-jwt-token');
-      expect(storage.getAuthToken(), equals('my-jwt-token'));
+    test('saveXtreamUrl and getXtreamUrl round-trip', () async {
+      await storage.saveXtreamUrl('http://example.com');
+      expect(storage.getXtreamUrl(), equals('http://example.com'));
     });
 
-    test('isAuthenticated returns false when token is null', () {
+    test('saveXtreamUsername and getXtreamUsername round-trip', () async {
+      await storage.saveXtreamUsername('alice');
+      expect(storage.getXtreamUsername(), equals('alice'));
+    });
+
+    test('saveXtreamPassword and getXtreamPassword round-trip', () async {
+      await storage.saveXtreamPassword('secret');
+      expect(storage.getXtreamPassword(), equals('secret'));
+    });
+
+    test('isAuthenticated returns false when credentials are missing', () {
       expect(storage.isAuthenticated, isFalse);
     });
 
-    test('isAuthenticated returns true after saving a token', () async {
-      await storage.saveAuthToken('some-token');
+    test('isAuthenticated returns false when only some credentials are set',
+        () async {
+      await storage.saveXtreamUrl('http://example.com');
+      await storage.saveXtreamUsername('alice');
+      expect(storage.isAuthenticated, isFalse);
+    });
+
+    test('isAuthenticated returns true once all credentials are saved',
+        () async {
+      await storage.saveXtreamUrl('http://example.com');
+      await storage.saveXtreamUsername('alice');
+      await storage.saveXtreamPassword('secret');
       expect(storage.isAuthenticated, isTrue);
     });
 
-    test('clearAuth removes the token', () async {
-      await storage.saveAuthToken('token-to-clear');
-      await storage.clearAuth();
-      expect(storage.getAuthToken(), isNull);
+    test('clearAll removes credentials', () async {
+      await storage.saveXtreamUrl('http://example.com');
+      await storage.saveXtreamUsername('alice');
+      await storage.saveXtreamPassword('secret');
+      await storage.clearAll();
       expect(storage.isAuthenticated, isFalse);
+      expect(storage.getXtreamUrl(), isNull);
     });
   });
 
@@ -102,15 +126,6 @@ void main() {
       expect(storage.isSubscriptionExpired, isFalse);
     });
 
-    test('wasMarkedExpired returns false by default', () {
-      expect(storage.wasMarkedExpired, isFalse);
-    });
-
-    test('markSubscriptionExpired sets wasMarkedExpired to true', () async {
-      await storage.markSubscriptionExpired();
-      expect(storage.wasMarkedExpired, isTrue);
-    });
-
     test('saveExpiresAt with null deletes the key', () async {
       await storage.saveExpiresAt('2025-01-01T00:00:00.000Z');
       await storage.saveExpiresAt(null);
@@ -135,6 +150,31 @@ void main() {
       await storage.saveHideAdultContent(true);
       await storage.saveHideAdultContent(false);
       expect(storage.hideAdultContent, isFalse);
+    });
+
+    test('getParentalPin returns null when not set', () {
+      expect(storage.getParentalPin(), isNull);
+    });
+
+    test('saveParentalPin and getParentalPin round-trip', () async {
+      await storage.saveParentalPin('1234');
+      expect(storage.getParentalPin(), equals('1234'));
+    });
+
+    test('verifyParentalPin returns true for matching pin', () async {
+      await storage.saveParentalPin('1234');
+      expect(storage.verifyParentalPin('1234'), isTrue);
+    });
+
+    test('verifyParentalPin returns false for non-matching pin', () async {
+      await storage.saveParentalPin('1234');
+      expect(storage.verifyParentalPin('0000'), isFalse);
+    });
+
+    test('clearParentalPin removes the pin', () async {
+      await storage.saveParentalPin('1234');
+      await storage.clearParentalPin();
+      expect(storage.getParentalPin(), isNull);
     });
   });
 

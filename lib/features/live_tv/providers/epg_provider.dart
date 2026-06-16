@@ -8,7 +8,7 @@ import '../../../services/epg_service.dart';
 final channelEpgProvider =
     FutureProvider.family<List<EpgItem>, String>((ref, channelId) async {
   final service = ref.watch(epgServiceProvider);
-  return service.getTodayEpg(channelId: channelId);
+  return service.getShortEpg(channelId: channelId);
 });
 
 /// Returns the program currently on air for [channelId], or null if none.
