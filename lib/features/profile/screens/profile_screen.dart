@@ -13,6 +13,8 @@ import '../../../services/xtream_service.dart';
 import '../../../models/movie.dart';
 import '../../../models/series.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../update/providers/update_provider.dart';
+import '../../update/widgets/update_dialog.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -30,6 +32,31 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     PackageInfo.fromPlatform().then((info) {
       if (mounted) setState(() => _appVersion = 'v${info.version}');
     });
+  }
+
+  bool _checkingUpdate = false;
+
+  Future<void> _checkForUpdate() async {
+    if (_checkingUpdate) return;
+    setState(() => _checkingUpdate = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final info =
+          await ref.refresh(updateCheckProvider.future);
+      if (!mounted) return;
+      if (info == null) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Ya tienes la última versión'),
+            backgroundColor: AppColors.surface,
+          ),
+        );
+      } else {
+        await UpdateDialog.show(context, info);
+      }
+    } finally {
+      if (mounted) setState(() => _checkingUpdate = false);
+    }
   }
 
   String _formatExpiry(String? isoDate) {
@@ -243,6 +270,38 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ],
                         ),
                         const SizedBox(height: 28),
+
+                        // ── Buscar actualizaciones ───────────────────────
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: OutlinedButton.icon(
+                            onPressed: _checkingUpdate ? null : _checkForUpdate,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.textPrimary,
+                              side: const BorderSide(color: AppColors.border),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            icon: _checkingUpdate
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppColors.primary,
+                                    ),
+                                  )
+                                : const Icon(Icons.system_update),
+                            label: const Text(
+                              'Buscar actualizaciones',
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
 
                         // ── Logout ───────────────────────────────────────
                         SizedBox(

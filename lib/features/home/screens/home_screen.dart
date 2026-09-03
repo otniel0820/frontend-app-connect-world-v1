@@ -10,6 +10,8 @@ import '../providers/home_provider.dart';
 import '../widgets/featured_banner.dart';
 import '../widgets/content_row.dart';
 import '../widgets/continue_watching_row.dart';
+import '../../update/providers/update_provider.dart';
+import '../../update/widgets/update_dialog.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -19,6 +21,8 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  static bool _updatePromptShown = false;
+
   final _cwScope = FocusScopeNode();
   final _moviesScope = FocusScopeNode();
   final _seriesScope = FocusScopeNode();
@@ -39,6 +43,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _registerNavbarDown();
     });
+    _maybePromptUpdate();
     _moviesFirstCard.addListener(_onMoviesFocus);
     _seriesFirstCard.addListener(_onSeriesFocus);
     _liveTVFirstCard.addListener(_onLiveTVFocus);
@@ -46,6 +51,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _registerNavbarDown() {
     NavbarFocus.registerContentFirst(_moviesFirstCard);
+  }
+
+  Future<void> _maybePromptUpdate() async {
+    if (_updatePromptShown) return;
+    final info = await ref.read(updateCheckProvider.future);
+    if (!mounted || _updatePromptShown || info == null) return;
+    _updatePromptShown = true;
+    await UpdateDialog.show(context, info);
   }
 
   void _onMoviesFocus() {
