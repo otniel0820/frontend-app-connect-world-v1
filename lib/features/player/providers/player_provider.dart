@@ -8,7 +8,7 @@ import '../../../services/stream_service.dart';
 final playerProvider = Provider.autoDispose<Player>((ref) {
   final player = Player(
     configuration: const PlayerConfiguration(
-      bufferSize: 256 * 1024 * 1024, // 256 MB — streams 4K HEVC
+      bufferSize: 256 * 1024 * 1024,
     ),
   );
   ref.onDispose(player.dispose);
@@ -21,8 +21,8 @@ final videoControllerProvider = Provider.autoDispose<VideoController>((ref) {
     player,
     configuration: const VideoControllerConfiguration(
       enableHardwareAcceleration: true,
-      vo: 'mediacodec_embed',
-      hwdec: 'mediacodec',
+      vo: 'gpu',
+      hwdec: 'mediacodec-copy',
     ),
   );
 });

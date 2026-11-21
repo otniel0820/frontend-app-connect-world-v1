@@ -110,9 +110,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         await native.setProperty('network-timeout', '30');
         await native.setProperty('stream-buffer-size', '512KiB');
 
-        // hwdec ya está configurado en VideoControllerConfiguration (mediacodec_embed)
-        // No sobreescribir aquí para no entrar en conflicto con el VO de Android
-
         // Permitir frame drop en decoder y salida — evita congelamiento
         await native.setProperty('framedrop', 'decoder+vo');
 
